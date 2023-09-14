@@ -3,10 +3,15 @@ const Busboy = require("busboy");
 const path = require("path");
 const fs = require("fs");
 const bodyParser = require("body-parser");
+const multer = require("multer"); // 用于处理文件上传的中间件
 
 var app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+
+// 配置Multer中间件，指定文件上传的目标目录
+const storage = multer.memoryStorage(); // 使用内存存储文件
+const upload = multer({ storage: storage });
 
 // 允许来自所有域的跨域请求
 app.use((req, res, next) => {
@@ -22,12 +27,23 @@ app.use((req, res, next) => {
 // 处理上传文件接口
 app.post("/upload", (req, res) => {
   const busboy = new Busboy({ headers: req.headers });
+  let userId; // 声明一个变量来存储参数
+
+  busboy.on("field", (fieldname, val, fieldnameTruncated, valTruncated) => {
+    // 处理参数
+    if (fieldname === "userId") {
+      userId = val;
+    }
+  });
+
   busboy.on("file", (fieldname, file, filename, encoding, mimetype) => {
     const saveTo = path.join(__dirname, "uploads", filename);
     file.pipe(fs.createWriteStream(saveTo));
   });
 
   busboy.on("finish", function () {
+    // 在这里可以使用 userId 和文件上传后的处理逻辑
+    console.log(userId); // 这里可以访问 userId
     res.send("文件上传成功");
   });
 
@@ -125,7 +141,7 @@ app.get("/api/datalist", (req, res) => {
 });
 
 // 删除记录接口
-app.delete("/api/delete", (req, res) => {
+app.delete("/api/delete", upload.single("file"), (req, res) => {
   const recordId = req.query.recordId;
 
   console.log(recordId);
